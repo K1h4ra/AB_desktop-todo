@@ -12,6 +12,8 @@ class TodoWidget {
         this.dragOverTaskId = null;
         this.draggedSubtaskIndex = null;
         this.dragOverSubtaskIndex = null;
+        // View mode: 1 = regular, 2 = compact (hide fixed), 3 = filtered (hide completed)
+        this.viewMode = 1;
         
         this.init();
     }
@@ -20,10 +22,59 @@ class TodoWidget {
         await this.loadSettings();
         this.setupEventListeners();
         await this.loadTasks();
+        this.resetFixedTasksIfNeeded();
         this.updateUI();
         this.applyTheme();
         this.applyOpacity();
         this.setupNotificationListeners();
+    }
+    
+    // Reset fixed tasks if they need to be refreshed
+    resetFixedTasksIfNeeded() {
+        const today = new Date().toISOString().split('T')[0];
+        let hasChanges = false;
+        
+        this.tasks.forEach(task => {
+            if (task.isFixed && task.completed) {
+                // Check if task has an end date and if it's expired
+                const hasEndDate = task.endDate !== null && task.endDate !== undefined;
+                const isExpired = hasEndDate && today > task.endDate;
+                
+                // Only reset if task is not expired
+                if (!isExpired) {
+                    // Calculate days since last refresh
+                    const lastRefreshDate = new Date(task.lastRefreshDate);
+                    const currentDate = new Date(today);
+                    const timeDiff = Math.abs(currentDate.getTime() - lastRefreshDate.getTime());
+                    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                    
+                    // If it's time to refresh, reset the task
+                    if (daysDiff >= task.refreshInterval) {
+                        task.completed = false;
+                        task.completedAt = null;
+                        task.lastRefreshDate = today;
+                        hasChanges = true;
+                    }
+                }
+            }
+        });
+        
+        if (hasChanges) {
+            this.saveTasks();
+        }
+    }
+    
+    // Set view mode
+    setViewMode(mode) {
+        this.viewMode = mode;
+        this.updateUI();
+        
+        // Provide visual feedback by highlighting the view mode button briefly
+        const viewModeBtn = document.getElementById('viewModeBtn');
+        viewModeBtn.classList.add('bg-blue-500/20', 'text-blue-500');
+        setTimeout(() => {
+            viewModeBtn.classList.remove('bg-blue-500/20', 'text-blue-500');
+        }, 300);
     }
     
     async loadSettings() {
@@ -99,9 +150,97 @@ class TodoWidget {
             window.electronAPI.navigateToSettings();
         });
         
+        // View mode button
+        const viewModeBtn = document.getElementById('viewModeBtn');
+        const viewModeMenu = document.getElementById('viewModeMenu');
+        
+        viewModeBtn.addEventListener('click', () => {
+            // Toggle menu visibility
+            viewModeMenu.classList.toggle('hidden');
+            
+            if (!viewModeMenu.classList.contains('hidden')) {
+                // Calculate positions
+                const btnRect = viewModeBtn.getBoundingClientRect();
+                const menuRect = viewModeMenu.getBoundingClientRect();
+                const windowWidth = window.innerWidth;
+                const windowHeight = window.innerHeight;
+                
+                // Calculate menu position
+                let menuLeft = btnRect.right - menuRect.width;
+                let menuTop = btnRect.bottom;
+                
+                // Adjust if menu would go off the right side
+                if (menuLeft < 0) {
+                    menuLeft = 0;
+                }
+                
+                // Adjust if menu would go off the bottom
+                if (menuTop + menuRect.height > windowHeight) {
+                    menuTop = btnRect.top - menuRect.height;
+                }
+                
+                // Apply position using fixed positioning
+                viewModeMenu.style.position = 'fixed';
+                viewModeMenu.style.left = `${menuLeft}px`;
+                viewModeMenu.style.top = `${menuTop}px`;
+                viewModeMenu.style.right = 'auto';
+                viewModeMenu.style.bottom = 'auto';
+            }
+        });
+        
+        // View mode menu items
+        document.getElementById('viewMode1').addEventListener('click', () => {
+            this.setViewMode(1);
+            viewModeMenu.classList.add('hidden');
+        });
+        
+        document.getElementById('viewMode2').addEventListener('click', () => {
+            this.setViewMode(2);
+            viewModeMenu.classList.add('hidden');
+        });
+        
+        document.getElementById('viewMode3').addEventListener('click', () => {
+            this.setViewMode(3);
+            viewModeMenu.classList.add('hidden');
+        });
+        
+        // Click outside to close view mode menu
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.relative')) {
+                viewModeMenu.classList.add('hidden');
+            }
+        });
+        
         // Edit task button
         document.getElementById('editTaskBtn').addEventListener('click', () => {
             this.toggleEditMode();
+        });
+        
+        // Fixed task button
+        document.getElementById('fixTaskBtn').addEventListener('click', () => {
+            this.handleFixTask();
+        });
+        
+        // Confirm refresh interval button
+        document.getElementById('confirmIntervalBtn').addEventListener('click', () => {
+            this.handleConfirmRefreshInterval();
+        });
+        
+        // Close modal button
+        document.getElementById('closeModalBtn').addEventListener('click', () => {
+            this.closeRefreshIntervalModal();
+        });
+        
+        // Cancel button
+        document.getElementById('cancelIntervalBtn').addEventListener('click', () => {
+            this.closeRefreshIntervalModal();
+        });
+        
+        // Click outside to close modal
+        document.getElementById('refreshIntervalModal').addEventListener('click', (e) => {
+            if (e.target.id === 'refreshIntervalModal') {
+                this.closeRefreshIntervalModal();
+            }
         });
         
         // Focus management
@@ -138,20 +277,28 @@ class TodoWidget {
         });
     }
     
-    addTask(text) {
+    addTask(text, isFixed = false, refreshInterval = 1, endDate = null) {
         // Get selected task type
         const taskType = document.querySelector('input[name="taskType"]:checked').value;
         
+        // Check if text has "固定" prefix and remove it if needed
+        const actualText = text.startsWith('固定') ? text.slice(2).trim() : text;
+        
         const task = {
             id: Date.now() + Math.random(),
-            text: text,
+            text: actualText,
             type: taskType,
             completed: false,
             createdAt: new Date().toISOString(),
             // Only add subtasks array for multi-task type
             subtasks: taskType === 'multi' ? [] : undefined,
             // Add expanded state for multi-task type
-            expanded: taskType === 'multi' ? false : undefined
+            expanded: taskType === 'multi' ? false : undefined,
+            // Fixed task properties
+            isFixed: isFixed,
+            refreshInterval: isFixed ? refreshInterval : undefined,
+            lastRefreshDate: isFixed ? new Date().toISOString().split('T')[0] : undefined,
+            endDate: isFixed ? endDate : undefined
         };
         
         this.tasks.unshift(task);
@@ -165,6 +312,69 @@ class TodoWidget {
                 taskElement.classList.add('slide-in');
             }
         }, 10);
+    }
+    
+    // Handle fixed task button click
+    handleFixTask() {
+        const taskInput = document.getElementById('taskInput');
+        // Check if input already has "固定" prefix
+        if (!taskInput.value.startsWith('固定')) {
+            taskInput.value = '固定 ' + taskInput.value;
+        }
+        
+        // Show refresh interval modal with animation
+        const modal = document.getElementById('refreshIntervalModal');
+        const modalContent = document.getElementById('modalContent');
+        modal.classList.remove('hidden');
+        
+        // Animate modal entrance
+        setTimeout(() => {
+            modalContent.classList.remove('scale-95', 'opacity-0');
+            modalContent.classList.add('scale-100', 'opacity-100');
+        }, 10);
+        
+        // Focus the input
+        document.getElementById('refreshIntervalInput').focus();
+    }
+    
+    // Handle confirm refresh interval
+    handleConfirmRefreshInterval() {
+        const taskInput = document.getElementById('taskInput');
+        const intervalInput = document.getElementById('refreshIntervalInput');
+        const endDateInput = document.getElementById('endDateInput');
+        
+        const interval = parseInt(intervalInput.value) || 1;
+        const endDate = endDateInput.value ? endDateInput.value : null;
+        
+        // Add the fixed task
+        if (taskInput.value.trim()) {
+            this.addTask(taskInput.value.trim(), true, interval, endDate);
+            taskInput.value = '';
+        }
+        
+        this.closeRefreshIntervalModal();
+    }
+    
+    // Close refresh interval modal with animation
+    closeRefreshIntervalModal() {
+        const modal = document.getElementById('refreshIntervalModal');
+        const modalContent = document.getElementById('modalContent');
+        const intervalInput = document.getElementById('refreshIntervalInput');
+        const endDateInput = document.getElementById('endDateInput');
+        const taskInput = document.getElementById('taskInput');
+        
+        // Animate modal exit
+        modalContent.classList.remove('scale-100', 'opacity-100');
+        modalContent.classList.add('scale-95', 'opacity-0');
+        
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            // Reset inputs
+            intervalInput.value = '1';
+            endDateInput.value = '';
+            // Focus the task input
+            taskInput.focus();
+        }, 300);
     }
     
     toggleTask(taskId) {
@@ -302,42 +512,96 @@ class TodoWidget {
             targetContainer = taskElement;
         }
         
-        // Create edit input
-        const editInput = document.createElement('input');
-        editInput.type = 'text';
-        editInput.value = targetText;
-        editInput.className = 'w-full px-2 py-1 text-sm rounded bg-white/20 dark:bg-black/20 border border-white/30 dark:border-white/10 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50';
+        // Create edit container
+        const editContainer = document.createElement('div');
+        editContainer.className = 'space-y-2';
         
-        // Replace text with input
-        textElement.replaceWith(editInput);
-        editInput.focus();
-        editInput.select();
+        // Create text input
+        const textInput = document.createElement('input');
+        textInput.type = 'text';
+        textInput.value = targetText;
+        textInput.className = 'w-full px-2 py-1 text-sm rounded bg-white/20 dark:bg-black/20 border border-white/30 dark:border-white/10 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50';
+        editContainer.appendChild(textInput);
+        
+        // Add fixed task settings if editing a fixed main task
+        if (subtaskIndex === null && task.isFixed) {
+            // Refresh interval input
+            const intervalDiv = document.createElement('div');
+            intervalDiv.className = 'flex items-center gap-2';
+            const intervalLabel = document.createElement('label');
+            intervalLabel.textContent = '每';
+            intervalLabel.className = 'text-xs text-gray-600 dark:text-gray-400';
+            const intervalInput = document.createElement('input');
+            intervalInput.type = 'number';
+            intervalInput.min = '1';
+            intervalInput.value = task.refreshInterval || 1;
+            intervalInput.className = 'w-16 px-2 py-1 text-sm rounded bg-white/20 dark:bg-black/20 border border-white/30 dark:border-white/10 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50';
+            const intervalSuffix = document.createElement('span');
+            intervalSuffix.textContent = '天刷新';
+            intervalSuffix.className = 'text-xs text-gray-600 dark:text-gray-400';
+            intervalDiv.appendChild(intervalLabel);
+            intervalDiv.appendChild(intervalInput);
+            intervalDiv.appendChild(intervalSuffix);
+            editContainer.appendChild(intervalDiv);
+            
+            // End date input
+            const endDateDiv = document.createElement('div');
+            endDateDiv.className = 'flex items-center gap-2';
+            const endDateLabel = document.createElement('label');
+            endDateLabel.textContent = '截止日期:';
+            endDateLabel.className = 'text-xs text-gray-600 dark:text-gray-400';
+            const endDateInput = document.createElement('input');
+            endDateInput.type = 'date';
+            endDateInput.value = task.endDate || '';
+            endDateInput.className = 'px-2 py-1 text-sm rounded bg-white/20 dark:bg-black/20 border border-white/30 dark:border-white/10 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50';
+            endDateDiv.appendChild(endDateLabel);
+            endDateDiv.appendChild(endDateInput);
+            editContainer.appendChild(endDateDiv);
+        }
+        
+        // Replace text with edit container
+        textElement.replaceWith(editContainer);
+        textInput.focus();
+        textInput.select();
+        
+        // Function to save edits
+        const saveEdits = () => {
+            if (textInput.value.trim()) {
+                if (subtaskIndex === null && task.isFixed) {
+                    // Save fixed task with settings
+                    const interval = parseInt(intervalInput.value) || 1;
+                    const endDate = endDateInput.value || null;
+                    this.saveEditedTask(task.id, textInput.value.trim(), subtaskIndex, interval, endDate);
+                } else {
+                    // Save regular task or subtask
+                    this.saveEditedTask(task.id, textInput.value.trim(), subtaskIndex);
+                }
+            } else {
+                this.cancelEdit(task.id, subtaskIndex);
+            }
+        };
         
         // Handle save on Enter
-        editInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && editInput.value.trim()) {
-                this.saveEditedTask(task.id, editInput.value.trim(), subtaskIndex);
+        textInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                saveEdits();
             }
         });
         
         // Handle cancel on Escape
-        editInput.addEventListener('keydown', (e) => {
+        textInput.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 this.cancelEdit(task.id, subtaskIndex);
             }
         });
         
-        // Handle blur to save
-        editInput.addEventListener('blur', () => {
-            if (editInput.value.trim()) {
-                this.saveEditedTask(task.id, editInput.value.trim(), subtaskIndex);
-            } else {
-                this.cancelEdit(task.id, subtaskIndex);
-            }
+        // Handle blur to save (with a small delay to allow clicking other elements)
+        textInput.addEventListener('blur', () => {
+            setTimeout(saveEdits, 200);
         });
     }
     
-    saveEditedTask(taskId, newText, subtaskIndex = null) {
+    saveEditedTask(taskId, newText, subtaskIndex = null, refreshInterval = null, endDate = null) {
         const task = this.tasks.find(t => t.id === taskId);
         if (task) {
             if (subtaskIndex !== null && task.subtasks && task.subtasks[subtaskIndex]) {
@@ -346,6 +610,16 @@ class TodoWidget {
             } else {
                 // Save main task
                 task.text = newText;
+                
+                // Update fixed task settings if provided
+                if (task.isFixed) {
+                    if (refreshInterval !== null) {
+                        task.refreshInterval = refreshInterval;
+                    }
+                    if (endDate !== null) {
+                        task.endDate = endDate;
+                    }
+                }
             }
             this.saveTasks();
             this.updateUI();
@@ -480,16 +754,67 @@ class TodoWidget {
     renderTasks() {
         const tasksList = document.getElementById('tasksList');
         
-        if (this.tasks.length === 0) {
+        // Filter tasks based on view mode
+        let filteredTasks = [...this.tasks];
+        
+        // Apply view mode filtering
+        switch (this.viewMode) {
+            case 2: // Compact mode: hide fixed tasks
+                filteredTasks = filteredTasks.filter(task => !task.isFixed);
+                break;
+            case 3: // Filtered mode: hide completed but not yet refreshed tasks
+                const today = new Date().toISOString().split('T')[0];
+                filteredTasks = filteredTasks.filter(task => {
+                    // Show all incomplete tasks
+                    if (!task.completed) return true;
+                    
+                    // For completed tasks, only show if they are fixed tasks that need refresh
+                    if (task.isFixed) {
+                        const lastRefreshDate = new Date(task.lastRefreshDate);
+                        const currentDate = new Date(today);
+                        const timeDiff = Math.abs(currentDate.getTime() - lastRefreshDate.getTime());
+                        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                        
+                        // Check if task has an end date and if it's expired
+                        const hasEndDate = task.endDate !== null && task.endDate !== undefined;
+                        const isExpired = hasEndDate && today > task.endDate;
+                        
+                        // Show fixed tasks that need refresh and are not expired
+                        return !isExpired && daysDiff >= task.refreshInterval;
+                    }
+                    
+                    // Hide completed non-fixed tasks
+                    return false;
+                });
+                break;
+            default: // Regular mode: show all tasks
+                break;
+        }
+        
+        if (filteredTasks.length === 0) {
             tasksList.innerHTML = '';
             return;
         }
         
-        const tasksHTML = this.tasks.map(task => this.createTaskHTML(task)).join('');
+        // Separate fixed tasks and regular tasks for filtered list
+        const fixedTasks = filteredTasks.filter(task => task.isFixed);
+        const regularTasks = filteredTasks.filter(task => !task.isFixed);
+        
+        // Render fixed tasks
+        let tasksHTML = fixedTasks.map(task => this.createTaskHTML(task)).join('');
+        
+        // Add separator if there are both fixed and regular tasks
+        if (fixedTasks.length > 0 && regularTasks.length > 0) {
+            tasksHTML += '<div class="w-full h-px bg-gray-300 dark:bg-gray-700 my-2"></div>';
+        }
+        
+        // Render regular tasks
+        tasksHTML += regularTasks.map(task => this.createTaskHTML(task)).join('');
+        
         tasksList.innerHTML = tasksHTML;
         
         // Add event listeners to task elements
-        this.tasks.forEach(task => {
+        filteredTasks.forEach(task => {
             const taskElement = document.querySelector(`[data-task-id="${task.id}"]`);
             if (taskElement) {
                 const checkbox = taskElement.querySelector('.task-checkbox');
@@ -517,13 +842,20 @@ class TodoWidget {
         const textDecoration = task.completed ? 'line-through' : '';
         const opacity = task.completed ? 'opacity-60' : '';
         
+        // Check if task is fixed
+        const isFixed = task.isFixed;
         // Check if task is multi-task type
         const isMultiTask = task.type === 'multi';
         // Get expanded state, default to false if not set
         const isExpanded = task.expanded || false;
         
+        // Fixed task styling
+        const fixedTaskClass = isFixed ? 'bg-blue-500/10 dark:bg-blue-500/20 border-blue-500/30 dark:border-blue-500/40' : '';
+        const fixedTaskPrefix = isFixed ? '<span class="text-blue-500 dark:text-blue-400 mr-1 text-xs">固定</span>' : '';
+        const calendarIcon = isFixed ? '<span class="text-blue-500 mr-1">📅</span>' : '';
+        
         return `
-            <div class="task-item ${opacity} bg-white/10 dark:bg-black/10 rounded-lg p-3 border border-white/20 dark:border-white/5 hover:border-white/40 dark:hover:border-white/10 transition-all group cursor-move" 
+            <div class="task-item ${opacity} ${fixedTaskClass} bg-white/10 dark:bg-black/10 rounded-lg p-3 border border-white/20 dark:border-white/5 hover:border-white/40 dark:hover:border-white/10 transition-all group cursor-move" 
                 data-task-id="${task.id}" 
                 draggable="true"
                 ondragstart="window.todoWidget.handleDragStart(event, ${task.id})"
@@ -542,19 +874,24 @@ class TodoWidget {
                     </label>
                     <div class="flex-1 min-w-0">
                         <p class="text-sm text-gray-800 dark:text-gray-200 ${textDecoration} break-words leading-relaxed">
-                            ${this.escapeHtml(task.text)}
+                            ${calendarIcon}${fixedTaskPrefix}${this.escapeHtml(task.text)}
                         </p>
                         ${task.completed && task.completedAt ? `
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                 Completed ${this.formatDate(task.completedAt)}
                             </p>
                         ` : ''}
+                        ${task.isFixed ? `
+                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 space-x-2">
+                                <span>每 ${task.refreshInterval} 天刷新</span>
+                                ${task.endDate ? `<span class="text-blue-500 dark:text-blue-400">截止: ${task.endDate}</span>` : ''}
+                            </div>
+                        ` : ''}
                     </div>
                     
                     ${isMultiTask ? `
                         <!-- Multi-task indicator and expand/collapse button -->
-                        <button class="multi-task-indicator p-1 rounded hover:bg-blue-500/20 transition-colors" title="Toggle subtasks" onclick="window.todoWidget.toggleSubtasks(${task.id})">
-                            <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <button class="multi-task-indicator p-1 rounded hover:bg-blue-500/20 transition-colors" title="Toggle subtasks" onclick="window.todoWidget.toggleSubtasks(${task.id})"><svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 ${isExpanded ? 
                                     '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>' : 
                                     '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>'

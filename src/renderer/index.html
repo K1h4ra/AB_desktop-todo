@@ -123,6 +123,29 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     </svg>
                 </button>
+                <!-- View Mode Toggle -->
+                <div class="relative">
+                    <button id="viewModeBtn" class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" title="View Mode">
+                        <svg class="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                        </svg>
+                    </button>
+                    <!-- View Mode Dropdown Menu -->
+                    <div id="viewModeMenu" class="hidden absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-1 border border-white/20 dark:border-gray-700 z-50 w-48">
+                        <button id="viewMode1" class="w-full text-left px-4 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center">
+                            <span class="mr-2">•</span>
+                            <span>常规显示模式</span>
+                        </button>
+                        <button id="viewMode2" class="w-full text-left px-4 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center">
+                            <span class="mr-2">•</span>
+                            <span>精简显示模式（隐藏固定任务）</span>
+                        </button>
+                        <button id="viewMode3" class="w-full text-left px-4 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center">
+                            <span class="mr-2">•</span>
+                            <span>过滤显示模式（隐藏已完成任务）</span>
+                        </button>
+                    </div>
+                </div>
                 <button id="editTaskBtn" class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" title="Edit Task">
                     <svg class="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -161,11 +184,54 @@
                         placeholder="Add a new task..." 
                         class="w-full px-4 py-2 rounded-lg bg-white/20 dark:bg-black/20 border border-white/30 dark:border-white/10 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
                     >
+                    <button id="fixTaskBtn" class="absolute right-10 top-1/2 transform -translate-y-1/2 p-1 rounded-md hover:bg-blue-500/20 transition-colors" title="Add Fixed Task">
+                        <span class="text-lg">📅</span>
+                    </button>
                     <button id="addBtn" class="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 rounded-md hover:bg-blue-500/20 transition-colors">
                         <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                         </svg>
                     </button>
+                </div>
+                <!-- Refresh Interval Input -->
+                <div id="refreshIntervalModal" class="hidden fixed inset-0 flex items-center justify-center bg-black/50 z-50 backdrop-blur-sm">
+                    <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-xl max-w-sm w-full mx-4 border border-white/20 dark:border-gray-700 transform transition-all duration-300 scale-95 opacity-0" id="modalContent">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-sm font-medium text-gray-800 dark:text-gray-200">固定任务设置</h3>
+                            <button id="closeModalBtn" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="space-y-4">
+                            <!-- Refresh Interval -->
+                            <div>
+                                <label for="refreshIntervalInput" class="block text-xs text-gray-600 dark:text-gray-400 mb-1">刷新间隔 (天)</label>
+                                <input 
+                                    id="refreshIntervalInput" 
+                                    type="number" 
+                                    min="1" 
+                                    value="1" 
+                                    class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/90 dark:bg-gray-900/90 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
+                                >
+                            </div>
+                            <!-- End Date -->
+                            <div>
+                                <label for="endDateInput" class="block text-xs text-gray-600 dark:text-gray-400 mb-1">结束日期 (可选，默认永久)</label>
+                                <input 
+                                    id="endDateInput" 
+                                    type="date" 
+                                    class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/90 dark:bg-gray-900/90 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
+                                >
+                            </div>
+                            <!-- Action Buttons -->
+                            <div class="flex items-center justify-end gap-2 mt-2">
+                                <button id="cancelIntervalBtn" class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm transition-colors">取消</button>
+                                <button id="confirmIntervalBtn" class="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 text-sm transition-colors">确认</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <!-- Task Type Selection -->
                 <div class="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
