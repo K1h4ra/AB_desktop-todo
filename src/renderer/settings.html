@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Desktop Todo Widget</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        glass: {
+                            light: 'rgba(255, 255, 255, 0.8)',
+                            dark: 'rgba(0, 0, 0, 0.8)',
+                        }
+                    },
+                    backdropBlur: {
+                        xs: '2px',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom styles for glass effect and scrollbar */
+        .glass-light {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .glass-dark {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .drag-region {
+            -webkit-app-region: drag;
+        }
+        
+        .no-drag {
+            -webkit-app-region: no-drag;
+        }
+        
+        /* Custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.3);
+            border-radius: 3px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.5);
+        }
+        
+        /* Toggle switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 24px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background-color: #3b82f6;
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+        
+        /* Range slider */
+        .range-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(156, 163, 175, 0.3);
+            outline: none;
+        }
+        
+        .range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+        }
+        
+        .range-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="m-0 p-0 overflow-hidden select-none">
+    <div id="app" class="w-full h-screen flex flex-col glass-dark">
+        <!-- Title Bar / Header -->
+        <div id="titleBar" class="drag-region flex items-center justify-between p-3 pb-2">
+            <div class="flex items-center space-x-2">
+                <button id="backBtn" class="no-drag p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" title="Back to Todo">
+                    <svg class="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </button>
+                <div class="w-3 h-3 rounded-full bg-gradient-to-r from-blue-400 to-purple-500"></div>
+                <h1 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Settings</h1>
+            </div>
+            <div class="no-drag flex items-center space-x-1">
+                <!-- Removed minimize and close buttons as requested -->
+            </div>
+        </div>
+        
+        <!-- Settings Content -->
+        <div class="flex-1 no-drag p-4 overflow-y-auto custom-scrollbar">
+            <!-- Appearance Settings -->
+            <div class="mb-6">
+                <h2 class="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">Appearance</h2>
+                
+                <!-- Opacity Setting -->
+                <div class="bg-white/10 dark:bg-black/10 rounded-lg p-4 mb-3 border border-white/20 dark:border-white/5">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Background Opacity</label>
+                        <span id="opacityValue" class="text-sm text-gray-600 dark:text-gray-400">80%</span>
+                    </div>
+                    <input type="range" id="opacitySlider" class="range-slider" min="20" max="100" value="80" step="5">
+                    <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        <span>Transparent</span>
+                        <span>Opaque</span>
+                    </div>
+                </div>
+                
+
+            </div>
+            
+            <!-- Behavior Settings -->
+            <div class="mb-6">
+                <h2 class="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">Behavior</h2>
+                
+                <!-- Always On Top Setting -->
+                <div class="bg-white/10 dark:bg-black/10 rounded-lg p-4 mb-3 border border-white/20 dark:border-white/5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Always On Top</label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Keep the widget above all other windows</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="alwaysOnTopToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Start with System Setting -->
+                <div class="bg-white/10 dark:bg-black/10 rounded-lg p-4 mb-3 border border-white/20 dark:border-white/5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Start with System</label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Launch the widget when your computer starts</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="startWithSystemToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Minimize to System Tray Setting -->
+                <div class="bg-white/10 dark:bg-black/10 rounded-lg p-4 mb-3 border border-white/20 dark:border-white/5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Minimize to System Tray</label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Keep running in the system tray when minimized</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="minimizeToTrayToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Data Settings -->
+            <div class="mb-6">
+                <h2 class="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">Data</h2>
+                
+                <!-- Clear Data Setting -->
+                <div class="bg-white/10 dark:bg-black/10 rounded-lg p-4 mb-3 border border-white/20 dark:border-white/5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Clear All Data</label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Delete all tasks and reset settings to defaults</p>
+                        </div>
+                        <button id="clearDataBtn" class="px-3 py-1 text-xs rounded-md bg-red-500/20 text-red-500 hover:bg-red-500/30 transition-colors">
+                            Clear Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- About Section -->
+            <div class="mb-6">
+                <h2 class="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">About</h2>
+                
+                <div class="bg-white/10 dark:bg-black/10 rounded-lg p-4 border border-white/20 dark:border-white/5">
+                    <div class="flex items-center space-x-3 mb-3">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-800 dark:text-gray-200">Desktop Todo Widget</h3>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Version 1.2.0</p>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-600 dark:text-gray-400">
+                        一个轻量级、始终可见的桌面待办事项小部件，使用 Electron.js 构建
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="settings.js"></script>
+</body>
+</html>
