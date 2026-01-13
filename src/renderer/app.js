@@ -31,7 +31,13 @@ class TodoWidget {
     
     // Reset fixed tasks if they need to be refreshed
     resetFixedTasksIfNeeded() {
-        const today = new Date().toISOString().split('T')[0];
+        // Get current date in YYYY-MM-DD format using local time (not UTC)
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const today = `${year}-${month}-${day}`;
+        
         let hasChanges = false;
         
         this.tasks.forEach(task => {
@@ -42,10 +48,16 @@ class TodoWidget {
                 
                 // Only reset if task is not expired
                 if (!isExpired) {
-                    // Calculate days since last refresh
-                    const lastRefreshDate = new Date(task.lastRefreshDate);
-                    const currentDate = new Date(today);
-                    const timeDiff = Math.abs(currentDate.getTime() - lastRefreshDate.getTime());
+                    // Parse dates correctly for local time comparison
+                    const lastRefresh = new Date(task.lastRefreshDate);
+                    const current = new Date(today);
+                    
+                    // Create dates in local time by setting hours to 12 (to avoid timezone issues)
+                    const lastRefreshLocal = new Date(lastRefresh.getFullYear(), lastRefresh.getMonth(), lastRefresh.getDate(), 12, 0, 0);
+                    const currentLocal = new Date(current.getFullYear(), current.getMonth(), current.getDate(), 12, 0, 0);
+                    
+                    // Calculate days since last refresh using local time
+                    const timeDiff = currentLocal.getTime() - lastRefreshLocal.getTime();
                     const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
                     
                     // If it's time to refresh, reset the task

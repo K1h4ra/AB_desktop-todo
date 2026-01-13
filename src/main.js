@@ -72,6 +72,17 @@ function createWindow() {
     mainWindow.hide();
   });
   
+  // Save window bounds when window is moved or resized
+  mainWindow.on('resize', () => {
+    const bounds = mainWindow.getBounds();
+    store.set('windowBounds', bounds);
+  });
+  
+  mainWindow.on('move', () => {
+    const bounds = mainWindow.getBounds();
+    store.set('windowBounds', bounds);
+  });
+  
   // Hide from taskbar when window is hidden
   mainWindow.on('hide', () => {
     mainWindow.setSkipTaskbar(true);
@@ -201,6 +212,12 @@ function createTray() {
     {
       label: 'Quit',
       click: () => {
+        // Save window bounds before quitting
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          const bounds = mainWindow.getBounds();
+          store.set('windowBounds', bounds);
+        }
+        
         // Ensure proper quit functionality
         if (settingsWindow && !settingsWindow.isDestroyed()) {
           settingsWindow.destroy();
@@ -343,10 +360,14 @@ ipcMain.handle('set-minimize-to-tray', (event, value) => {
 });
 
 ipcMain.handle('clear-all-data', () => {
+  // Get current window bounds before clearing
+  const currentBounds = store.get('windowBounds');
+  
   store.clear();
-  // Reset to defaults
+  
+  // Reset to defaults, but preserve window bounds
   store.set({
-    windowBounds: { width: 320, height: 480, x: 100, y: 100 },
+    windowBounds: currentBounds || { width: 320, height: 480, x: 100, y: 100 },
     alwaysOnTop: true,
     theme: 'dark',
     opacity: 80,
