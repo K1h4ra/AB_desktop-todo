@@ -771,8 +771,13 @@ class TodoWidget {
         
         // Apply view mode filtering
         switch (this.viewMode) {
-            case 2: // Compact mode: hide fixed tasks
-                filteredTasks = filteredTasks.filter(task => !task.isFixed);
+            case 2: // Compact mode: hide completed fixed tasks only
+                filteredTasks = filteredTasks.filter(task => {
+                    // Show all non-fixed tasks
+                    if (!task.isFixed) return true;
+                    // For fixed tasks, only show incomplete ones
+                    return !task.completed;
+                });
                 break;
             case 3: // Filtered mode: hide completed but not yet refreshed tasks
                 const today = new Date().toISOString().split('T')[0];
