@@ -12,8 +12,8 @@ class TodoWidget {
         this.dragOverTaskId = null;
         this.draggedSubtaskIndex = null;
         this.dragOverSubtaskIndex = null;
-        // View mode: 1 = regular, 2 = compact (hide fixed), 3 = filtered (hide completed)
-        this.viewMode = 1;
+        // View mode: 1 = regular, 2 = compact (hide completed fixed), 3 = filtered (hide completed)
+        // Will be loaded from settings in loadSettings()
         
         this.init();
     }
@@ -79,6 +79,7 @@ class TodoWidget {
     // Set view mode
     setViewMode(mode) {
         this.viewMode = mode;
+        this.saveViewMode();
         this.updateUI();
         
         // Provide visual feedback by highlighting the view mode button briefly
@@ -89,11 +90,20 @@ class TodoWidget {
         }, 300);
     }
     
+    async saveViewMode() {
+        try {
+            await window.electronAPI.setStoreValue('viewMode', this.viewMode);
+        } catch (error) {
+            console.error('Error saving view mode:', error);
+        }
+    }
+    
     async loadSettings() {
         try {
             this.currentTheme = await window.electronAPI.getStoreValue('theme', 'dark');
             this.isAlwaysOnTop = await window.electronAPI.getStoreValue('alwaysOnTop', true);
             this.opacity = await window.electronAPI.getStoreValue('opacity', 80);
+            this.viewMode = await window.electronAPI.getStoreValue('viewMode', 1);
         } catch (error) {
             console.error('Error loading settings:', error);
         }
